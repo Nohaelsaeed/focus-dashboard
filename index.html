@@ -227,19 +227,18 @@
 <div class="toast" id="toast"></div>
 
 <script>
-  const firebaseConfig = {
-  apiKey: "AIzaSyBsy5uxbu0KrJuCM-GjHJmwrMVTjvKvDaY"",
-  ...
-};
 // ---- fill this in with your own Firebase project config ----
 const firebaseConfig = {
-  apiKey: "YOUR_API_KEY",
-  authDomain: "YOUR_PROJECT.firebaseapp.com",
-  projectId: "YOUR_PROJECT",
-  storageBucket: "YOUR_PROJECT.appspot.com",
-  messagingSenderId: "YOUR_SENDER_ID",
-  appId: "YOUR_APP_ID"
+  apiKey: "AIzaSyBsy5uxbu0KrJuCM-GjHJmwrMVTjvKvDaY",
+  authDomain: "focus-dashboard-ebc69.firebaseapp.com",
+  projectId: "focus-dashboard-ebc69",
+  storageBucket: "focus-dashboard-ebc69.firebasestorage.app",
+  messagingSenderId: "440904742798",
+  appId: "1:440904742798:web:d719fa64d973d10a5d96df"
 };
+
+// Initialize Firebase
+const app = initializeApp(firebaseConfig);
 firebase.initializeApp(firebaseConfig);
 const db = firebase.firestore();
 
