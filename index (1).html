@@ -1,0 +1,686 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Focus dashboard</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600&family=Inter:wght@400;500&display=swap" rel="stylesheet">
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+<style>
+  :root{
+    --bg:#F7F6F1;
+    --surface:#FFFFFF;
+    --surface-2:#EFEDE5;
+    --text:#2A2A26;
+    --text-soft:#6E6C63;
+    --text-faint:#A6A499;
+    --border:#E3E0D5;
+    --sage:#4F7168;
+    --sage-bg:#E3ECE7;
+    --sage-text:#2E4B44;
+    --clay:#B5533E;
+    --clay-bg:#F6E4DF;
+    --clay-text:#7A3627;
+    --radius:14px;
+  }
+  *{box-sizing:border-box;}
+  body{margin:0;background:var(--bg);color:var(--text);font-family:'Inter',sans-serif;padding:28px 20px 60px;}
+  h1,h2{font-family:'Space Grotesk',sans-serif;}
+  .wrap{max-width:640px;margin:0 auto;position:relative;}
+  .top{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:22px;}
+  .top .date{font-size:13px;color:var(--text-soft);}
+  .top h1{font-size:20px;font-weight:600;margin:2px 0 0;}
+  .reset{background:none;border:1px solid var(--border);border-radius:8px;padding:6px 12px;font-size:12px;color:var(--text-soft);cursor:pointer;font-family:'Inter',sans-serif;}
+  .reset:hover{background:var(--surface-2);}
+
+  .toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%) translateY(8px);background:var(--text);color:#fff;font-size:13px;padding:10px 18px;border-radius:10px;opacity:0;pointer-events:none;transition:opacity .25s, transform .25s;z-index:10;}
+  .toast.show{opacity:1;transform:translateX(-50%) translateY(0);}
+
+  .now-card{background:var(--sage);color:#fff;border-radius:20px;padding:26px 24px;margin-bottom:26px;min-height:96px;display:flex;flex-direction:column;justify-content:center;gap:12px;}
+  .now-label{font-size:11px;letter-spacing:.08em;text-transform:uppercase;opacity:.75;}
+  .now-text{font-size:22px;font-weight:500;line-height:1.35;font-family:'Space Grotesk',sans-serif;}
+  .now-empty{font-size:15px;opacity:.85;font-weight:400;}
+  .now-actions{display:flex;gap:8px;margin-top:4px;}
+  .now-actions button{border:1px solid rgba(255,255,255,.4);background:rgba(255,255,255,.08);color:#fff;border-radius:8px;padding:7px 14px;font-size:13px;cursor:pointer;font-family:'Inter',sans-serif;}
+  .now-actions button:hover{background:rgba(255,255,255,.18);}
+  .now-actions .done{background:#fff;color:var(--sage-text);border-color:#fff;font-weight:500;}
+
+  section{margin-bottom:26px;}
+  .sec-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;}
+  .sec-head h2{font-size:14px;font-weight:600;margin:0;color:var(--text-soft);letter-spacing:.02em;}
+  .sec-head .count{font-size:12px;color:var(--text-faint);}
+
+  .card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);}
+
+  .add-row{display:flex;gap:8px;margin-bottom:10px;}
+  .add-row input{flex:1;border:1px solid var(--border);border-radius:10px;padding:10px 12px;font-size:14px;font-family:'Inter',sans-serif;background:var(--surface);color:var(--text);}
+  .add-row input:focus{outline:none;border-color:var(--sage);}
+  .add-row button{border:none;background:var(--text);color:#fff;border-radius:10px;padding:0 16px;font-size:14px;cursor:pointer;font-family:'Inter',sans-serif;}
+  .add-row button:disabled{opacity:.4;cursor:default;}
+
+  .task-item{display:flex;align-items:center;gap:10px;padding:12px 14px;border-bottom:1px solid var(--border);}
+  .task-item:last-child{border-bottom:none;}
+  .task-item .chk{width:18px;height:18px;border-radius:6px;border:1.5px solid var(--text-faint);flex-shrink:0;cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:12px;color:#fff;}
+  .task-item .chk.checked{background:var(--sage);border-color:var(--sage);}
+  .task-item .txt{flex:1;font-size:14px;cursor:pointer;}
+  .task-item .txt.done{text-decoration:line-through;color:var(--text-faint);}
+  .task-item .pin{font-size:11px;border:1px solid var(--border);border-radius:7px;padding:4px 9px;color:var(--text-soft);cursor:pointer;background:none;font-family:'Inter',sans-serif;}
+  .task-item .pin:hover{background:var(--surface-2);}
+  .task-item .pin.active{background:var(--sage-bg);color:var(--sage-text);border-color:var(--sage-bg);}
+  .task-item .rm{background:none;border:none;color:var(--text-faint);cursor:pointer;font-size:16px;line-height:1;padding:2px 4px;}
+  .task-item .rm:hover{color:var(--clay);}
+
+  .empty{padding:16px 14px;font-size:13px;color:var(--text-faint);}
+
+  .park-item{display:flex;align-items:center;gap:10px;padding:10px 14px;border-bottom:1px solid var(--border);font-size:13px;}
+  .park-item:last-child{border-bottom:none;}
+  .park-item .txt{flex:1;color:var(--text-soft);}
+  .park-item .promote{font-size:11px;border:1px solid var(--border);border-radius:7px;padding:4px 9px;color:var(--sage-text);cursor:pointer;background:var(--sage-bg);font-family:'Inter',sans-serif;}
+  .park-item .rm{background:none;border:none;color:var(--text-faint);cursor:pointer;font-size:16px;line-height:1;padding:2px 4px;}
+
+  .grid-add{display:grid;grid-template-columns:1.3fr 1.3fr .9fr auto;gap:8px;margin-bottom:10px;}
+  .grid-add input{border:1px solid var(--border);border-radius:10px;padding:9px 10px;font-size:13px;font-family:'Inter',sans-serif;background:var(--surface);color:var(--text);width:100%;}
+  .grid-add button{border:none;background:var(--text);color:#fff;border-radius:10px;font-size:13px;cursor:pointer;font-family:'Inter',sans-serif;}
+  .list-row{display:flex;align-items:center;gap:10px;padding:12px 14px;border-bottom:1px solid var(--border);font-size:13px;}
+  .list-row:last-child{border-bottom:none;}
+  .list-row .name{font-weight:500;min-width:110px;}
+  .list-row .action{flex:1;color:var(--text-soft);}
+  .list-row .badge{font-size:11px;border-radius:7px;padding:4px 9px;white-space:nowrap;}
+  .list-row .badge.soon{background:var(--clay-bg);color:var(--clay-text);}
+  .list-row .badge.later{background:var(--surface-2);color:var(--text-soft);}
+  .list-row .rm{background:none;border:none;color:var(--text-faint);cursor:pointer;font-size:16px;line-height:1;padding:2px 4px;}
+
+  .hint{font-size:12px;color:var(--text-faint);margin-top:8px;line-height:1.5;}
+
+  .req-item{display:flex;align-items:center;gap:10px;padding:12px 14px;border-bottom:1px solid var(--border);}
+  .req-item:last-child{border-bottom:none;}
+  .req-item .rtag{font-size:11px;font-weight:500;color:var(--sage-text);background:var(--sage-bg);border-radius:7px;padding:4px 9px;white-space:nowrap;flex-shrink:0;}
+  .req-item .txt{flex:1;font-size:14px;cursor:pointer;}
+  .req-item .txt.done{text-decoration:line-through;color:var(--text-faint);}
+  .hist-day:last-child{border-bottom:none;}
+  .hist-day .hd-date{font-size:12px;font-weight:500;color:var(--text-soft);margin-bottom:6px;}
+  .hist-day ul{margin:0;padding-left:18px;}
+  .hist-day li{font-size:13px;line-height:1.6;color:var(--text);}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <div class="top">
+    <div>
+      <div class="date" id="dateLabel"></div>
+      <h1>Focus dashboard</h1>
+    </div>
+    <div style="display:flex;gap:8px;">
+      <button class="reset" id="syncBtn" title="Click to view or change your sync code">Sync</button>
+      <button class="reset" id="resetBtn" title="Rolls over automatically each day — use this to do it early">Reset now</button>
+    </div>
+  </div>
+
+  <div class="now-card">
+    <div class="now-label">Right now</div>
+    <div id="nowText" class="now-text now-empty">Pick one thing below to focus on.</div>
+    <div class="now-actions" id="nowActions" style="display:none;">
+      <button class="done" id="nowDone">Mark done</button>
+      <button id="nowClear">Clear focus</button>
+    </div>
+  </div>
+
+  <section>
+    <div class="sec-head"><h2>Top 3 today</h2><span class="count" id="topCount">0 / 3</span></div>
+    <div class="card">
+      <div style="padding:12px 14px 0;">
+        <div class="add-row">
+          <input type="text" id="taskInput" placeholder="Add one of today's top 3 tasks" maxlength="120">
+          <button id="taskAdd">Add</button>
+        </div>
+      </div>
+      <div id="taskList"></div>
+    </div>
+    <div class="hint">Only three fit here on purpose. Smaller stuff goes in Minor tasks below.</div>
+  </section>
+
+  <section>
+    <div class="sec-head"><h2>Minor tasks</h2><span class="count" id="minorCount">0</span></div>
+    <div class="card">
+      <div style="padding:12px 14px 0;">
+        <div class="add-row">
+          <input type="text" id="minorInput" placeholder="Add a smaller task, no limit here" maxlength="140">
+          <button id="minorAdd">Add</button>
+        </div>
+      </div>
+      <div id="minorList"></div>
+    </div>
+  </section>
+
+  <section>
+    <div class="sec-head"><h2>Parking lot</h2><span class="count" id="parkCount">0</span></div>
+    <div class="card">
+      <div style="padding:12px 14px 0;">
+        <div class="add-row">
+          <input type="text" id="parkInput" placeholder="Capture a stray thought, deal with it later" maxlength="140">
+          <button id="parkAdd">Add</button>
+        </div>
+      </div>
+      <div id="parkList"></div>
+    </div>
+  </section>
+
+  <section>
+    <div class="sec-head"><h2>Client requests</h2><span class="count" id="reqCount">0</span></div>
+    <div class="card">
+      <div style="padding:12px 14px 0;">
+        <div class="grid-add" style="grid-template-columns:1fr 1.6fr auto;">
+          <input type="text" id="rClient" placeholder="Client">
+          <input type="text" id="rText" placeholder="What they're asking for">
+          <button id="rAdd">Add</button>
+        </div>
+      </div>
+      <div id="reqList"></div>
+    </div>
+    <div class="hint">Check off once handled, or promote to Top 3 if it needs real focus time.</div>
+  </section>
+
+  <section>
+    <div class="sec-head"><h2>Client tracker</h2><span class="count" id="clientCount">0</span></div>
+    <div class="card">
+      <div style="padding:12px 14px 0;">
+        <div class="grid-add">
+          <input type="text" id="cName" placeholder="Client">
+          <input type="text" id="cAction" placeholder="Next action">
+          <input type="date" id="cDate">
+          <button id="cAdd">Add</button>
+        </div>
+      </div>
+      <div id="clientList"></div>
+    </div>
+    <div class="hint">Deadlines within 2 days are flagged automatically.</div>
+  </section>
+
+  <section>
+    <div class="sec-head"><h2>Team tracker</h2><span class="count" id="teamCount">0</span></div>
+    <div class="card">
+      <div style="padding:12px 14px 0;">
+        <div class="grid-add">
+          <input type="text" id="tName" placeholder="Team member">
+          <input type="text" id="tAction" placeholder="What they owe you">
+          <input type="date" id="tDate">
+          <button id="tAdd">Add</button>
+        </div>
+      </div>
+      <div id="teamList"></div>
+    </div>
+    <div class="hint">Track what's delegated so it doesn't rely on your memory.</div>
+  </section>
+
+  <section>
+    <div class="sec-head"><h2>History</h2><span class="count" id="histCount">0 days</span></div>
+    <div class="card" id="histCard">
+      <div class="empty" id="histEmpty">Nothing logged yet. Shows up after your first end-of-day reset.</div>
+      <div id="histList"></div>
+    </div>
+  </section>
+
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+// ---- fill this in with your own Firebase project config ----
+const firebaseConfig = {
+  apiKey: "YOUR_API_KEY",
+  authDomain: "YOUR_PROJECT.firebaseapp.com",
+  projectId: "YOUR_PROJECT",
+  storageBucket: "YOUR_PROJECT.appspot.com",
+  messagingSenderId: "YOUR_SENDER_ID",
+  appId: "YOUR_APP_ID"
+};
+firebase.initializeApp(firebaseConfig);
+const db = firebase.firestore();
+
+function randomCode(){
+  return Math.random().toString(36).slice(2,8).toUpperCase();
+}
+
+function getSyncCode(){
+  let code = localStorage.getItem('focusSyncCode');
+  if(!code){
+    const choice = confirm('Set up sync across devices?\n\nOK = create a new sync code for this device.\nCancel = I already have a code from another device.');
+    if(choice){
+      code = randomCode();
+      localStorage.setItem('focusSyncCode', code);
+      setTimeout(()=>alert('Your sync code is: ' + code + '\n\nEnter this same code on your other devices to see the same data. Keep it private — anyone with the code can access your dashboard.'), 300);
+    } else {
+      code = (prompt('Enter your sync code:') || '').trim().toUpperCase();
+      if(code) localStorage.setItem('focusSyncCode', code);
+    }
+  }
+  return code || randomCode();
+}
+
+let syncCode = null;
+let saveTimer = null;
+
+let state = { tasks: [], minor: [], parking: [], requests: [], clients: [], team: [], log: [], nowId: null, lastDate: null };
+const DEFAULTS = {tasks:[],minor:[],parking:[],requests:[],clients:[],team:[],log:[],nowId:null,lastDate:null};
+
+function uid(){ return Math.random().toString(36).slice(2,10); }
+
+function todayKey(){
+  const d = new Date();
+  return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
+}
+
+function archiveDoneAndCarry(){
+  const doneItems = [
+    ...state.tasks.filter(t=>t.done).map(t=>t.text),
+    ...state.minor.filter(m=>m.done).map(m=>m.text),
+    ...state.requests.filter(r=>r.done).map(r=>`${r.client}: ${r.text}`)
+  ];
+  const carryCount = state.tasks.filter(t=>!t.done).length + state.minor.filter(m=>!m.done).length;
+
+  if(doneItems.length>0){
+    const key = state.lastDate || todayKey();
+    let entry = state.log.find(d=>d.date===key);
+    if(!entry){ entry = {date:key, items:[]}; state.log.push(entry); }
+    entry.items.push(...doneItems);
+    if(state.log.length>30){
+      state.log = [...state.log].sort((a,b)=>b.date.localeCompare(a.date)).slice(0,30);
+    }
+  }
+
+  state.tasks = state.tasks.filter(t=>!t.done);
+  state.minor = state.minor.filter(m=>!m.done);
+  state.requests = state.requests.filter(r=>!r.done);
+  state.nowId = null;
+  return {doneCount: doneItems.length, carryCount};
+}
+
+async function load(){
+  syncCode = getSyncCode();
+  document.getElementById('syncBtn').textContent = 'Sync: ' + syncCode;
+  try{
+    const snap = await db.collection('dashboards').doc(syncCode).get();
+    if(snap.exists){
+      state = Object.assign({}, DEFAULTS, snap.data());
+    } else {
+      state = Object.assign({}, DEFAULTS);
+      await db.collection('dashboards').doc(syncCode).set(state);
+    }
+  }catch(e){
+    showToast('Could not reach sync server — check your Firebase config');
+  }
+
+  const today = todayKey();
+  if(state.lastDate && state.lastDate !== today){
+    const {doneCount, carryCount} = archiveDoneAndCarry();
+    state.lastDate = today;
+    save();
+    render();
+    showToast(`New day — logged ${doneCount} from yesterday, carried ${carryCount} over`);
+    return;
+  }
+  if(!state.lastDate){ state.lastDate = today; save(); }
+  render();
+}
+async function save(){
+  if(!syncCode) return;
+  try{ await db.collection('dashboards').doc(syncCode).set(state); }catch(e){
+    showToast('Could not save — check your connection');
+  }
+}
+
+function showToast(msg){
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  clearTimeout(showToast._timer);
+  showToast._timer = setTimeout(()=>t.classList.remove('show'), 2200);
+}
+
+function fmtDate(){
+  const d = new Date();
+  document.getElementById('dateLabel').textContent = d.toLocaleDateString(undefined,{weekday:'long', month:'long', day:'numeric'});
+}
+
+function daysUntil(dateStr){
+  if(!dateStr) return null;
+  const today = new Date(); today.setHours(0,0,0,0);
+  const target = new Date(dateStr+'T00:00:00');
+  return Math.round((target-today)/86400000);
+}
+
+function escapeHtml(s){
+  const d = document.createElement('div');
+  d.textContent = s;
+  return d.innerHTML;
+}
+
+function render(){
+  const active = state.tasks.find(t=>t.id===state.nowId && !t.done);
+  const nowText = document.getElementById('nowText');
+  const nowActions = document.getElementById('nowActions');
+  if(active){
+    nowText.textContent = active.text;
+    nowText.classList.remove('now-empty');
+    nowActions.style.display='flex';
+  } else {
+    nowText.textContent = 'Pick one thing below to focus on.';
+    nowText.classList.add('now-empty');
+    nowActions.style.display='none';
+    if(state.nowId) state.nowId = null;
+  }
+
+  const taskList = document.getElementById('taskList');
+  taskList.innerHTML='';
+  if(state.tasks.length===0){
+    taskList.innerHTML = '<div class="empty">No tasks yet. Add up to three.</div>';
+  }
+  state.tasks.forEach(t=>{
+    const row = document.createElement('div');
+    row.className='task-item';
+    row.innerHTML = `
+      <div class="chk ${t.done?'checked':''}" data-id="${t.id}" data-role="chk">${t.done?'✓':''}</div>
+      <div class="txt ${t.done?'done':''}" data-id="${t.id}" data-role="txt">${escapeHtml(t.text)}</div>
+      <button class="pin ${t.id===state.nowId?'active':''}" data-id="${t.id}" data-role="pin">${t.id===state.nowId?'Focused':'Focus'}</button>
+      <button class="rm" data-id="${t.id}" data-role="rmtask">&times;</button>
+    `;
+    taskList.appendChild(row);
+  });
+  document.getElementById('topCount').textContent = `${state.tasks.length} / 3`;
+
+  const minorList = document.getElementById('minorList');
+  minorList.innerHTML='';
+  if(state.minor.length===0){
+    minorList.innerHTML = '<div class="empty">Nothing here. Small stuff goes here so it doesn\'t clutter Top 3.</div>';
+  }
+  state.minor.forEach(m=>{
+    const row = document.createElement('div');
+    row.className='task-item';
+    row.innerHTML = `
+      <div class="chk ${m.done?'checked':''}" data-id="${m.id}" data-role="mchk">${m.done?'✓':''}</div>
+      <div class="txt ${m.done?'done':''}" data-id="${m.id}" data-role="mtxt">${escapeHtml(m.text)}</div>
+      <button class="rm" data-id="${m.id}" data-role="rmminor">&times;</button>
+    `;
+    minorList.appendChild(row);
+  });
+  document.getElementById('minorCount').textContent = state.minor.length;
+
+  const parkList = document.getElementById('parkList');
+  parkList.innerHTML='';
+  if(state.parking.length===0){
+    parkList.innerHTML = '<div class="empty">Nothing parked. Good.</div>';
+  }
+  state.parking.forEach(p=>{
+    const row = document.createElement('div');
+    row.className='park-item';
+    row.innerHTML = `
+      <div class="txt">${escapeHtml(p.text)}</div>
+      <button class="promote" data-id="${p.id}" data-role="promote">Move to top 3</button>
+      <button class="rm" data-id="${p.id}" data-role="rmpark">&times;</button>
+    `;
+    parkList.appendChild(row);
+  });
+  document.getElementById('parkCount').textContent = state.parking.length;
+
+  const reqList = document.getElementById('reqList');
+  reqList.innerHTML='';
+  if(state.requests.length===0){
+    reqList.innerHTML = '<div class="empty">No open requests.</div>';
+  }
+  state.requests.forEach(r=>{
+    const row = document.createElement('div');
+    row.className='req-item';
+    row.innerHTML = `
+      <div class="chk ${r.done?'checked':''}" data-id="${r.id}" data-role="rchk">${r.done?'✓':''}</div>
+      <span class="rtag">${escapeHtml(r.client)}</span>
+      <div class="txt ${r.done?'done':''}" data-id="${r.id}" data-role="rtxt">${escapeHtml(r.text)}</div>
+      <button class="pin" data-id="${r.id}" data-role="rpromote">To top 3</button>
+      <button class="rm" data-id="${r.id}" data-role="rmreq">&times;</button>
+    `;
+    reqList.appendChild(row);
+  });
+  document.getElementById('reqCount').textContent = state.requests.filter(r=>!r.done).length;
+
+  renderTrackList('clientList', state.clients, 'rmclient');
+  document.getElementById('clientCount').textContent = state.clients.length;
+
+  renderTrackList('teamList', state.team, 'rmteam');
+  document.getElementById('teamCount').textContent = state.team.length;
+
+  const histList = document.getElementById('histList');
+  const histEmpty = document.getElementById('histEmpty');
+  histList.innerHTML='';
+  document.getElementById('histCount').textContent = `${state.log.length} day${state.log.length===1?'':'s'}`;
+  if(state.log.length===0){
+    histEmpty.style.display='block';
+  } else {
+    histEmpty.style.display='none';
+    const recent = [...state.log].sort((a,b)=> b.date.localeCompare(a.date)).slice(0,7);
+    recent.forEach(day=>{
+      const div = document.createElement('div');
+      div.className='hist-day';
+      const label = new Date(day.date+'T00:00:00').toLocaleDateString(undefined,{weekday:'short', month:'short', day:'numeric'});
+      div.innerHTML = `<div class="hd-date">${label}</div><ul>${day.items.map(i=>`<li>${escapeHtml(i)}</li>`).join('')}</ul>`;
+      histList.appendChild(div);
+    });
+  }
+}
+
+function renderTrackList(elId, arr, rmRole){
+  const el = document.getElementById(elId);
+  el.innerHTML='';
+  if(arr.length===0){
+    el.innerHTML = '<div class="empty">Nothing tracked yet.</div>';
+    return;
+  }
+  const sorted = [...arr].sort((a,b)=>{
+    const da = a.date? new Date(a.date) : new Date(8640000000000000);
+    const db = b.date? new Date(b.date) : new Date(8640000000000000);
+    return da-db;
+  });
+  sorted.forEach(c=>{
+    const d = daysUntil(c.date);
+    let badge = '';
+    if(d!==null){
+      const label = d<0 ? 'Overdue' : d===0 ? 'Today' : d===1 ? 'Tomorrow' : `${d}d`;
+      badge = `<span class="badge ${d<=2?'soon':'later'}">${label}</span>`;
+    }
+    const row = document.createElement('div');
+    row.className='list-row';
+    row.innerHTML = `
+      <div class="name">${escapeHtml(c.name)}</div>
+      <div class="action">${escapeHtml(c.action)}</div>
+      ${badge}
+      <button class="rm" data-id="${c.id}" data-role="${rmRole}">&times;</button>
+    `;
+    el.appendChild(row);
+  });
+}
+
+document.getElementById('taskAdd').addEventListener('click', ()=>{
+  const input = document.getElementById('taskInput');
+  const val = input.value.trim();
+  if(!val) return;
+  if(state.tasks.length>=3){ showToast('Top 3 is full — add it to Minor tasks instead'); return; }
+  state.tasks.push({id:uid(), text:val, done:false});
+  input.value='';
+  save(); render();
+});
+document.getElementById('taskInput').addEventListener('keydown', e=>{
+  if(e.key==='Enter') document.getElementById('taskAdd').click();
+});
+
+document.getElementById('minorAdd').addEventListener('click', ()=>{
+  const input = document.getElementById('minorInput');
+  const val = input.value.trim();
+  if(!val) return;
+  state.minor.push({id:uid(), text:val, done:false});
+  input.value='';
+  save(); render();
+});
+document.getElementById('minorInput').addEventListener('keydown', e=>{
+  if(e.key==='Enter') document.getElementById('minorAdd').click();
+});
+
+document.getElementById('parkAdd').addEventListener('click', ()=>{
+  const input = document.getElementById('parkInput');
+  const val = input.value.trim();
+  if(!val) return;
+  state.parking.push({id:uid(), text:val});
+  input.value='';
+  save(); render();
+});
+document.getElementById('parkInput').addEventListener('keydown', e=>{
+  if(e.key==='Enter') document.getElementById('parkAdd').click();
+});
+
+document.getElementById('rAdd').addEventListener('click', ()=>{
+  const client = document.getElementById('rClient').value.trim();
+  const text = document.getElementById('rText').value.trim();
+  if(!client || !text) return;
+  state.requests.push({id:uid(), client, text, done:false});
+  document.getElementById('rClient').value='';
+  document.getElementById('rText').value='';
+  save(); render();
+});
+document.getElementById('rText').addEventListener('keydown', e=>{
+  if(e.key==='Enter') document.getElementById('rAdd').click();
+});
+
+document.getElementById('cAdd').addEventListener('click', ()=>{
+  const name = document.getElementById('cName').value.trim();
+  const action = document.getElementById('cAction').value.trim();
+  const date = document.getElementById('cDate').value;
+  if(!name || !action) return;
+  state.clients.push({id:uid(), name, action, date});
+  document.getElementById('cName').value='';
+  document.getElementById('cAction').value='';
+  document.getElementById('cDate').value='';
+  save(); render();
+});
+
+document.getElementById('tAdd').addEventListener('click', ()=>{
+  const name = document.getElementById('tName').value.trim();
+  const action = document.getElementById('tAction').value.trim();
+  const date = document.getElementById('tDate').value;
+  if(!name || !action) return;
+  state.team.push({id:uid(), name, action, date});
+  document.getElementById('tName').value='';
+  document.getElementById('tAction').value='';
+  document.getElementById('tDate').value='';
+  save(); render();
+});
+
+document.getElementById('taskList').addEventListener('click', e=>{
+  const role = e.target.dataset.role;
+  const id = e.target.dataset.id;
+  if(!role) return;
+  if(role==='chk' || role==='txt'){
+    const t = state.tasks.find(t=>t.id===id);
+    if(t){ t.done = !t.done; if(t.done && state.nowId===id) state.nowId=null; }
+  } else if(role==='pin'){
+    state.nowId = (state.nowId===id) ? null : id;
+  } else if(role==='rmtask'){
+    state.tasks = state.tasks.filter(t=>t.id!==id);
+    if(state.nowId===id) state.nowId=null;
+  }
+  save(); render();
+});
+
+document.getElementById('minorList').addEventListener('click', e=>{
+  const role = e.target.dataset.role;
+  const id = e.target.dataset.id;
+  if(!role) return;
+  if(role==='mchk' || role==='mtxt'){
+    const m = state.minor.find(m=>m.id===id);
+    if(m) m.done = !m.done;
+  } else if(role==='rmminor'){
+    state.minor = state.minor.filter(m=>m.id!==id);
+  }
+  save(); render();
+});
+
+document.getElementById('parkList').addEventListener('click', e=>{
+  const role = e.target.dataset.role;
+  const id = e.target.dataset.id;
+  if(!role) return;
+  if(role==='rmpark'){
+    state.parking = state.parking.filter(p=>p.id!==id);
+  } else if(role==='promote'){
+    const p = state.parking.find(p=>p.id===id);
+    if(p){
+      if(state.tasks.length>=3){ showToast('Top 3 is full — try Minor tasks'); return; }
+      state.tasks.push({id:uid(), text:p.text, done:false});
+      state.parking = state.parking.filter(x=>x.id!==id);
+    }
+  }
+  save(); render();
+});
+
+document.getElementById('reqList').addEventListener('click', e=>{
+  const role = e.target.dataset.role;
+  const id = e.target.dataset.id;
+  if(!role) return;
+  if(role==='rchk' || role==='rtxt'){
+    const r = state.requests.find(r=>r.id===id);
+    if(r) r.done = !r.done;
+  } else if(role==='rmreq'){
+    state.requests = state.requests.filter(r=>r.id!==id);
+  } else if(role==='rpromote'){
+    const r = state.requests.find(r=>r.id===id);
+    if(r){
+      if(state.tasks.length>=3){ showToast('Top 3 is full — try Minor tasks'); return; }
+      state.tasks.push({id:uid(), text:`${r.client}: ${r.text}`, done:false});
+      state.requests = state.requests.filter(x=>x.id!==id);
+    }
+  }
+  save(); render();
+});
+
+document.getElementById('clientList').addEventListener('click', e=>{
+  if(e.target.dataset.role==='rmclient'){
+    state.clients = state.clients.filter(c=>c.id!==e.target.dataset.id);
+    save(); render();
+  }
+});
+
+document.getElementById('teamList').addEventListener('click', e=>{
+  if(e.target.dataset.role==='rmteam'){
+    state.team = state.team.filter(c=>c.id!==e.target.dataset.id);
+    save(); render();
+  }
+});
+
+document.getElementById('nowDone').addEventListener('click', ()=>{
+  const t = state.tasks.find(t=>t.id===state.nowId);
+  if(t) t.done = true;
+  state.nowId = null;
+  save(); render();
+});
+document.getElementById('nowClear').addEventListener('click', ()=>{
+  state.nowId = null;
+  save(); render();
+});
+
+document.getElementById('resetBtn').addEventListener('click', ()=>{
+  const {doneCount, carryCount} = archiveDoneAndCarry();
+  state.lastDate = todayKey();
+  save(); render();
+  showToast(doneCount ? `Logged ${doneCount} done, carried ${carryCount} over` : `Nothing done to log — carried ${carryCount} over`);
+});
+
+document.getElementById('syncBtn').addEventListener('click', ()=>{
+  const action = prompt('Your sync code is: ' + syncCode + '\n\nTo switch to a different code, type it below and press OK. Leave blank and press OK to keep this one.');
+  if(action && action.trim()){
+    localStorage.setItem('focusSyncCode', action.trim().toUpperCase());
+    location.reload();
+  }
+});
+
+fmtDate();
+load();
+</script>
+</body>
+</html>
