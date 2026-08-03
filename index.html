@@ -227,20 +227,17 @@
 <div class="toast" id="toast"></div>
 
 <script>
-  import { initializeApp } from "firebase/app";
 // ---- fill this in with your own Firebase project config ----
 const firebaseConfig = {
   apiKey: "AIzaSyBsy5uxbu0KrJuCM-GjHJmwrMVTjvKvDaY",
   authDomain: "focus-dashboard-ebc69.firebaseapp.com",
   projectId: "focus-dashboard-ebc69",
-  storageBucket: "focus-dashboard-ebc69.firebasestorage.app",
+  storageBucket: "focus-dashboard-ebc69.appspot.com",
   messagingSenderId: "440904742798",
   appId: "1:440904742798:web:d719fa64d973d10a5d96df"
 };
-
-// Initialize Firebase
-const app = initializeApp(firebaseConfig);
 firebase.initializeApp(firebaseConfig);
+const db = firebase.firestore();
 
 function randomCode(){
   return Math.random().toString(36).slice(2,8).toUpperCase();
