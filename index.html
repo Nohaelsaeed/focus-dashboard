@@ -227,6 +227,7 @@
 <div class="toast" id="toast"></div>
 
 <script>
+  import { initializeApp } from "firebase/app";
 // ---- fill this in with your own Firebase project config ----
 const firebaseConfig = {
   apiKey: "AIzaSyBsy5uxbu0KrJuCM-GjHJmwrMVTjvKvDaY",
@@ -240,7 +241,6 @@ const firebaseConfig = {
 // Initialize Firebase
 const app = initializeApp(firebaseConfig);
 firebase.initializeApp(firebaseConfig);
-const db = firebase.firestore();
 
 function randomCode(){
   return Math.random().toString(36).slice(2,8).toUpperCase();
